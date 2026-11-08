@@ -15,10 +15,17 @@ export class Playfield {
   };
   private dpr: number = 1;
   private hudHeight: number = 64;
+  private cachedGradient: CanvasGradient | null = null;
+  private cachedGradW: number = 0;
+  private cachedGradH: number = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.resize();
+  }
+
+  public getDpr(): number {
+    return this.dpr;
   }
 
   public getHudHeight(): number {
@@ -26,7 +33,8 @@ export class Playfield {
   }
 
   public resize(): ViewportTransform {
-    this.dpr = window.devicePixelRatio || 1;
+    // Cap DPR to 1.5x for rock-solid 60 FPS on 4K TVs and integrated GPUs (e.g. Educatron, laptops)
+    this.dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const windowW = window.innerWidth;
     const windowH = window.innerHeight;
 
@@ -101,16 +109,20 @@ export class Playfield {
       ctx.fillRect(0, 0, w, h);
     }
 
-    // Subtle radial ambient glow behind playfield
-    const grad = ctx.createRadialGradient(
-      w / 2, h / 2, 50,
-      w / 2, h / 2, Math.max(w, h) * 0.65
-    );
-    grad.addColorStop(0, 'rgba(15, 23, 42, 0.6)');
-    grad.addColorStop(0.5, 'rgba(10, 12, 22, 0.85)');
-    grad.addColorStop(1, '#05060a');
+    // Subtle radial ambient glow behind playfield (cached to avoid creating gradients every frame)
+    if (!this.cachedGradient || this.cachedGradW !== w || this.cachedGradH !== h) {
+      this.cachedGradW = w;
+      this.cachedGradH = h;
+      this.cachedGradient = ctx.createRadialGradient(
+        w / 2, h / 2, 50,
+        w / 2, h / 2, Math.max(w, h) * 0.65
+      );
+      this.cachedGradient.addColorStop(0, 'rgba(15, 23, 42, 0.6)');
+      this.cachedGradient.addColorStop(0.5, 'rgba(10, 12, 22, 0.85)');
+      this.cachedGradient.addColorStop(1, '#05060a');
+    }
 
-    ctx.fillStyle = grad;
+    ctx.fillStyle = this.cachedGradient;
     ctx.fillRect(0, 0, w, h);
   }
 

@@ -40,7 +40,7 @@ export class Renderer {
     gameState: GameState = 'playing',
     backgroundDim: number = 0.75
   ): void {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.playfield.getDpr();
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const bgImage = ImageLoader.get(beatmap.coverUrl);
