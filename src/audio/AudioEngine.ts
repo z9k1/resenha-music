@@ -20,9 +20,8 @@ export class AudioEngine {
   private previewSource: AudioBufferSourceNode | null = null;
   private previewGain: GainNode | null = null;
   private currentPreviewRequestId: number = 0;
+  private currentPreviewBeatmapId: string | null = null;
 
-  private menuMusicSource: AudioBufferSourceNode | null = null;
-  private menuMusicGain: GainNode | null = null;
 
   private masterGain: GainNode | null = null;
   private sfxGain: GainNode | null = null;
@@ -105,11 +104,6 @@ export class AudioEngine {
       this.previewGain.gain.value = 1.0;
       this.previewGain.connect(this.musicGain);
 
-      // Route menu ambient music through musicGain with a subtle ambient factor
-      this.menuMusicGain = this.ctx.createGain();
-      this.menuMusicGain.gain.value = 0.75;
-      this.menuMusicGain.connect(this.musicGain);
-
       this.sfxGain = this.ctx.createGain();
       this.sfxGain.gain.value = this.sfxVolume;
       this.sfxGain.connect(this.masterGain);
@@ -175,10 +169,15 @@ export class AudioEngine {
   }
 
   /**
-   * Plays a preview of the beatmap in the song selection screen.
-   * Guarantees that only ONE preview can ever play at any time.
+   * Plays a preview of the beatmap in the song selection screen or menu jukebox.
+   * If the exact same beatmap is already playing, it continues seamlessly without restart.
    */
   public async playPreview(beatmap: Beatmap): Promise<void> {
+    // If THIS EXACT beatmap is already playing in the background, keep playing seamlessly!
+    if (this.currentPreviewBeatmapId === beatmap.id && this.previewSource) {
+      return;
+    }
+
     // 1. Stop any currently playing preview node first
     this.stopPreview();
 
@@ -235,6 +234,7 @@ export class AudioEngine {
 
       source.start(0, offsetSec);
       this.previewSource = source;
+      this.currentPreviewBeatmapId = beatmap.id;
     } catch (err) {
       console.warn('[AudioEngine] Could not play preview for beatmap:', beatmap.title, err);
     }
@@ -246,6 +246,7 @@ export class AudioEngine {
   public stopPreview(): void {
     // Invalidate any pending preview requests in flight
     this.currentPreviewRequestId++;
+    this.currentPreviewBeatmapId = null;
 
     if (this.previewSource) {
       try {
@@ -456,68 +457,18 @@ export class AudioEngine {
 
   /**
    * Plays smooth ambient looped music for the main menu.
-   * Only called after explicit user interaction, and never overlaps with preview or gameplay.
+   * Seamlessly shares the preview audio player so navigating between main menu and song selection never restarts playback.
    */
   public async playMenuMusic(beatmap?: Beatmap): Promise<void> {
-    await this.init();
-    this.stopMenuMusic();
-    this.stopPreview();
-
-    if (!this.ctx || !this.menuMusicGain) return;
-
-    try {
-      let buffer: AudioBuffer | null = null;
-      if (beatmap?.audioSourceType === 'file' && beatmap.audioUrl) {
-        buffer = await this.loadAudioFile(beatmap.audioUrl);
-      } else {
-        buffer = this.synthTrackBuffer;
-      }
-
-      if (!buffer || !this.ctx || !this.menuMusicGain) return;
-
-      if (this.ctx.state === 'suspended') {
-        await this.ctx.resume();
-      }
-
-      const source = this.ctx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-
-      // Soft fade in for menu ambiance (relative to musicGain)
-      this.menuMusicGain.gain.cancelScheduledValues(this.ctx.currentTime);
-      this.menuMusicGain.gain.setValueAtTime(0, this.ctx.currentTime);
-      this.menuMusicGain.gain.linearRampToValueAtTime(
-        0.75,
-        this.ctx.currentTime + 0.8
-      );
-
-      source.connect(this.menuMusicGain);
-
-      const offsetSec = Math.min(
-        Math.max(0, beatmap?.previewStartSec ?? 10),
-        Math.max(0, buffer.duration - 4)
-      );
-
-      source.start(0, offsetSec);
-      this.menuMusicSource = source;
-    } catch (err) {
-      console.warn('[AudioEngine] Could not play menu music:', err);
-    }
+    if (!beatmap) return;
+    return this.playPreview(beatmap);
   }
 
   public stopMenuMusic(): void {
-    if (this.menuMusicSource) {
-      try {
-        this.menuMusicSource.stop();
-        this.menuMusicSource.disconnect();
-      } catch {
-        // ignore
-      }
-      this.menuMusicSource = null;
-    }
+    this.stopPreview();
   }
 
   public isMenuMusicPlaying(): boolean {
-    return this.menuMusicSource !== null;
+    return this.previewSource !== null;
   }
 }

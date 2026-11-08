@@ -243,13 +243,11 @@ export class Game {
 
   public goToMainMenu(): void {
     this.audioEngine.stop();
-    this.audioEngine.stopPreview();
     this.state = 'main_menu';
     this.uiManager.showStartScreen();
   }
 
   public goToSongSelect(): void {
-    this.audioEngine.stopMenuMusic();
     this.audioEngine.stop();
     this.state = 'song_select';
     this.uiManager.showSongSelectScreen(BEATMAPS, this.beatmap);
