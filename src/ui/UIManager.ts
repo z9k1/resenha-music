@@ -363,9 +363,9 @@ export class UIManager {
     this.isSettingsOpen = true;
 
     const volumes = this.handlers.getAudioVolumes?.() ?? {
-      master: 0.85,
-      music: 0.8,
-      sfx: 0.95,
+      master: 0.70,
+      music: 0.35,
+      sfx: 0.65,
     };
     const bgDim = this.handlers.getBackgroundDim?.() ?? 0.75;
 

@@ -28,9 +28,9 @@ export class AudioEngine {
   private sfxGain: GainNode | null = null;
   private musicGain: GainNode | null = null;
 
-  private masterVolume: number = 0.85;
-  private musicVolume: number = 0.80;
-  private sfxVolume: number = 0.95;
+  private masterVolume: number = 0.70;
+  private musicVolume: number = 0.35;
+  private sfxVolume: number = 0.65;
 
   // State
   private isStarted: boolean = false;
@@ -49,6 +49,19 @@ export class AudioEngine {
 
   private loadSavedVolumes(): void {
     try {
+      const hasUpdated = localStorage.getItem('resenha_volume_updated');
+      if (!hasUpdated) {
+        // Lower default music volume to comfortable levels and persist
+        this.masterVolume = 0.70;
+        this.musicVolume = 0.35;
+        this.sfxVolume = 0.65;
+        localStorage.setItem('resenha_master_vol', '0.70');
+        localStorage.setItem('resenha_music_vol', '0.35');
+        localStorage.setItem('resenha_sfx_vol', '0.65');
+        localStorage.setItem('resenha_volume_updated', '1');
+        return;
+      }
+
       const savedMaster = localStorage.getItem('resenha_master_vol');
       if (savedMaster !== null) {
         const val = parseFloat(savedMaster);
@@ -87,13 +100,15 @@ export class AudioEngine {
       this.musicGain.gain.value = this.musicVolume;
       this.musicGain.connect(this.masterGain);
 
+      // Route preview through musicGain so it ALWAYS respects musicVolume & masterVolume
       this.previewGain = this.ctx.createGain();
-      this.previewGain.gain.value = this.musicVolume * 0.85;
-      this.previewGain.connect(this.masterGain);
+      this.previewGain.gain.value = 1.0;
+      this.previewGain.connect(this.musicGain);
 
+      // Route menu ambient music through musicGain with a subtle ambient factor
       this.menuMusicGain = this.ctx.createGain();
-      this.menuMusicGain.gain.value = this.musicVolume * 0.65;
-      this.menuMusicGain.connect(this.masterGain);
+      this.menuMusicGain.gain.value = 0.75;
+      this.menuMusicGain.connect(this.musicGain);
 
       this.sfxGain = this.ctx.createGain();
       this.sfxGain.gain.value = this.sfxVolume;
@@ -206,9 +221,10 @@ export class AudioEngine {
       source.buffer = buffer;
       source.loop = true;
 
-      // Set volume reliably
-      this.previewGain.gain.cancelScheduledValues(0);
-      this.previewGain.gain.value = 0.65;
+      // Soft fade in for preview through previewGain (routed through musicGain)
+      this.previewGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.previewGain.gain.setValueAtTime(0, this.ctx.currentTime);
+      this.previewGain.gain.linearRampToValueAtTime(1.0, this.ctx.currentTime + 0.12);
 
       source.connect(this.previewGain);
 
@@ -396,6 +412,7 @@ export class AudioEngine {
     }
     try {
       localStorage.setItem('resenha_master_vol', this.masterVolume.toString());
+      localStorage.setItem('resenha_volume_updated', '1');
     } catch {}
   }
 
@@ -405,16 +422,9 @@ export class AudioEngine {
       this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
       this.musicGain.gain.setValueAtTime(this.musicVolume, this.ctx.currentTime);
     }
-    if (this.previewGain && this.ctx) {
-      this.previewGain.gain.cancelScheduledValues(this.ctx.currentTime);
-      this.previewGain.gain.setValueAtTime(this.musicVolume * 0.85, this.ctx.currentTime);
-    }
-    if (this.menuMusicGain && this.ctx) {
-      this.menuMusicGain.gain.cancelScheduledValues(this.ctx.currentTime);
-      this.menuMusicGain.gain.setValueAtTime(this.musicVolume * 0.65, this.ctx.currentTime);
-    }
     try {
       localStorage.setItem('resenha_music_vol', this.musicVolume.toString());
+      localStorage.setItem('resenha_volume_updated', '1');
     } catch {}
   }
 
@@ -426,6 +436,7 @@ export class AudioEngine {
     }
     try {
       localStorage.setItem('resenha_sfx_vol', this.sfxVolume.toString());
+      localStorage.setItem('resenha_volume_updated', '1');
     } catch {}
   }
 
@@ -472,11 +483,11 @@ export class AudioEngine {
       source.buffer = buffer;
       source.loop = true;
 
-      // Soft fade in for menu ambiance
+      // Soft fade in for menu ambiance (relative to musicGain)
       this.menuMusicGain.gain.cancelScheduledValues(this.ctx.currentTime);
       this.menuMusicGain.gain.setValueAtTime(0, this.ctx.currentTime);
       this.menuMusicGain.gain.linearRampToValueAtTime(
-        this.musicVolume * 0.6,
+        0.75,
         this.ctx.currentTime + 0.8
       );
 
