@@ -193,7 +193,7 @@ export class UIManager {
               <div class="logo-pulse-highlight"></div>
             </div>
             <div class="logo-shadow-glow"></div>
-            <p class="title-slogan">"Qualquer semelhança é mera conhecidência!"</p>
+            <p class="title-slogan">Qualquer semelhança é mera conhecidência!</p>
           </div>
 
           <!-- Idle Prompt (Visible only before clicking) -->
