@@ -1,4 +1,5 @@
 import type { ActiveMods, Beatmap, GameStats, ScoreRecord } from '../types/index.ts';
+import { BEATMAPS } from '../beatmap/index.ts';
 
 export interface UIEventHandlers {
   onGoToSongSelect: () => void;
@@ -507,6 +508,33 @@ export class UIManager {
     if (this.isCreditsOpen) return;
     this.isCreditsOpen = true;
 
+    const trackList = this.beatmapsList.length > 0 ? this.beatmapsList : BEATMAPS;
+    const getTrackIcon = (id: string) => {
+      switch (id) {
+        case 'sua-rifa-nao-vou-comprar': return '🎟️';
+        case 'quem-fiscaliza-o-fiscal': return '🚨';
+        case 'mapeamento': return '🗺️';
+        case 'pod-no-banheiro': return '💨';
+        case 'dalsao-no-suco': return '⚡';
+        case 'alo-cachorrada': return '🔥';
+        case 'resenha-groove-demo': return '🎧';
+        default: return '🎵';
+      }
+    };
+
+    const tracksHtml = trackList
+      .map(
+        (b) => `
+              <div class="credit-track-pill">
+                <span class="track-icon">${getTrackIcon(b.id)}</span>
+                <div>
+                  <strong>${b.title}</strong>
+                  <p>${b.artist} • ★${b.difficultyStars.toFixed(1)} ${b.difficultyName}</p>
+                </div>
+              </div>`
+      )
+      .join('');
+
     const overlay = document.createElement('div');
     overlay.id = 'credits-modal-overlay';
     overlay.className = 'modal-backdrop credits-modal-backdrop';
@@ -557,41 +585,7 @@ export class UIManager {
           <div class="credit-block">
             <div class="credit-role-tag highlight-gold">TRILHA SONORA & BEATMAPS</div>
             <div class="credit-tracks-grid">
-              <div class="credit-track-pill">
-                <span class="track-icon">🎟️</span>
-                <div>
-                  <strong>Sua Rifa Não Vou Comprar</strong>
-                  <p>Desconhecido • ★3.6 Hard</p>
-                </div>
-              </div>
-              <div class="credit-track-pill">
-                <span class="track-icon">💨</span>
-                <div>
-                  <strong>Pod no Banheiro</strong>
-                  <p>Desconhecido • ★4.1 Insane</p>
-                </div>
-              </div>
-              <div class="credit-track-pill">
-                <span class="track-icon">⚡</span>
-                <div>
-                  <strong>Dalsão no Suco</strong>
-                  <p>Desconhecido • ★2.8 Normal</p>
-                </div>
-              </div>
-              <div class="credit-track-pill">
-                <span class="track-icon">🔥</span>
-                <div>
-                  <strong>Alô cachorrada!</strong>
-                  <p>Desconhecido • ★4.2 Insane</p>
-                </div>
-              </div>
-              <div class="credit-track-pill">
-                <span class="track-icon">🎧</span>
-                <div>
-                  <strong>Ritimo da resenha</strong>
-                  <p>Miguel • ★2.0 Tutorial Demo</p>
-                </div>
-              </div>
+${tracksHtml}
             </div>
           </div>
 

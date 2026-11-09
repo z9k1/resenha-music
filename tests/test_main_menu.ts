@@ -224,6 +224,15 @@ console.log('\n=== TEST 4: Credits Modal & Content Notice ===');
   assert(creditsHtml.includes('Victor Tirolla'), 'Contains Victor Tirolla');
   assert(creditsHtml.includes('Mateus'), 'Contains Mateus');
 
+  // Verify all 7 tracks appear in credits
+  assert(creditsHtml.includes('Sua Rifa Não Vou Comprar'), 'Credits contains Sua Rifa Não Vou Comprar');
+  assert(creditsHtml.includes('Quem Fiscaliza o Fiscal?'), 'Credits contains Quem Fiscaliza o Fiscal?');
+  assert(creditsHtml.includes('Mapeamento'), 'Credits contains Mapeamento');
+  assert(creditsHtml.includes('Pod no Banheiro'), 'Credits contains Pod no Banheiro');
+  assert(creditsHtml.includes('Dalsão no Suco'), 'Credits contains Dalsão no Suco');
+  assert(creditsHtml.includes('Alô cachorrada!'), 'Credits contains Alô cachorrada!');
+  assert(creditsHtml.includes('Ritimo da resenha'), 'Credits contains Ritimo da resenha');
+
   // Verify project description
   assert(
     creditsHtml.includes('Resenha Music é um jogo de ritmo desenvolvido como projeto escolar de incentivo à cultura'),
