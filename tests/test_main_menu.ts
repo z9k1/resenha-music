@@ -141,6 +141,7 @@ console.log('\n=== TEST 3: Default Beatmap (Sua Rifa Não Vou Comprar) & Song Me
   // Verify artists and titles
   const suaRifa = BEATMAPS.find((b) => b.id === 'sua-rifa-nao-vou-comprar')!;
   const fiscal = BEATMAPS.find((b) => b.id === 'quem-fiscaliza-o-fiscal')!;
+  const mapeamento = BEATMAPS.find((b) => b.id === 'mapeamento')!;
   const pod = BEATMAPS.find((b) => b.id === 'pod-no-banheiro')!;
   const dalsao = BEATMAPS.find((b) => b.id === 'dalsao-no-suco')!;
   const alo = BEATMAPS.find((b) => b.id === 'alo-cachorrada')!;
@@ -149,13 +150,15 @@ console.log('\n=== TEST 3: Default Beatmap (Sua Rifa Não Vou Comprar) & Song Me
   assert(suaRifa.artist === 'Desconhecido', 'Sua Rifa artist must be Desconhecido');
   assert(fiscal.title === 'Quem Fiscaliza o Fiscal?', 'Quem Fiscaliza o Fiscal title must be correct');
   assert(fiscal.artist === 'Desconhecido', 'Quem Fiscaliza o Fiscal artist must be Desconhecido');
+  assert(mapeamento.title === 'Mapeamento', 'Mapeamento title must be correct');
+  assert(mapeamento.artist === 'Desconhecido', 'Mapeamento artist must be Desconhecido');
   assert(pod.title === 'Pod no Banheiro', 'Pod no Banheiro title must be Pod no Banheiro');
   assert(pod.artist === 'Desconhecido', 'Pod no Banheiro artist must be Desconhecido');
   assert(dalsao.artist === 'Desconhecido', 'Dalsão artist must be Desconhecido');
   assert(alo.artist === 'Desconhecido', 'Alô cachorrada artist must be Desconhecido');
   assert(groove.title === 'Ritimo da resenha', 'Resenha groove title must be "Ritimo da resenha"');
   assert(groove.artist === 'Miguel', 'Ritimo da resenha artist must be Miguel');
-  console.log('✓ Song metadata verified: Desconhecido for 5 songs, Miguel for Ritimo da resenha');
+  console.log('✓ Song metadata verified: Desconhecido for 6 songs, Miguel for Ritimo da resenha');
 }
 
 console.log('\n=== TEST 4: Credits Modal & Content Notice ===');
