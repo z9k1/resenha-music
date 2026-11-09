@@ -12,6 +12,7 @@ import { UIManager } from '../ui/UIManager.ts';
 import { LeaderboardManager } from '../storage/LeaderboardManager.ts';
 import { ActiveSlider, type SliderCallbacks } from './ActiveSlider.ts';
 import { AutoplayController } from './AutoplayController.ts';
+import { createEasyBeatmap } from './EasyModeHelper.ts';
 import { JudgementSystem } from './JudgementSystem.ts';
 import { ScoreSystem } from './ScoreSystem.ts';
 
@@ -28,8 +29,11 @@ export class Game {
   private activeMods: ActiveMods = {
     autoPlay: false,
     easy: false,
+    autoPilot: false,
+    relax: false,
   };
   private autoplayController: AutoplayController | null = null;
+  private autopilotController: AutoplayController | null = null;
 
   private audioEngine: AudioEngine;
   private inputManager: InputManager;
@@ -142,7 +146,12 @@ export class Game {
     this.inputManager.on('tap', (_key, pos) => {
       if (this.state !== 'playing' || this.activeMods.autoPlay) return;
       const currentTimeMs = this.audioEngine.getCurrentTimeMs();
-      this.handleTapAt(pos, currentTimeMs);
+      // If Autopilot (AP) is active: cursor is guided automatically, timing by player
+      const effectivePos =
+        this.activeMods.autoPilot && this.autopilotController
+          ? this.autopilotController.getCursor()
+          : pos;
+      this.handleTapAt(effectivePos, currentTimeMs);
     });
 
     // Pause toggle (ESC)
@@ -257,8 +266,8 @@ export class Game {
     this.beatmap = beatmap;
     this.activeMods = this.uiManager.getActiveMods();
     this.judgementSystem.setEasyMode(this.activeMods.easy);
-    const radius = this.activeMods.easy ? Math.round(beatmap.circleRadius * 1.25) : beatmap.circleRadius;
-    this.judgementSystem.setCircleRadius(radius);
+    const effectiveMap = this.activeMods.easy ? createEasyBeatmap(beatmap) : beatmap;
+    this.judgementSystem.setCircleRadius(effectiveMap.circleRadius);
     this.audioEngine.playPreview(beatmap);
   }
 
@@ -267,14 +276,9 @@ export class Game {
     this.activeMods = this.uiManager.getActiveMods();
     this.judgementSystem.setEasyMode(this.activeMods.easy);
 
-    // Create cloned effective beatmap with modified CS / AR without mutating original
+    // Create cloned effective beatmap with modified CS / AR / rhythm without mutating original
     this.currentEffectiveBeatmap = this.activeMods.easy
-      ? {
-          ...beatmap,
-          circleRadius: Math.round(beatmap.circleRadius * 1.25),
-          approachTimeMs: Math.round(beatmap.approachTimeMs * 1.3),
-          notes: beatmap.notes.map((n) => ({ ...n })),
-        }
+      ? createEasyBeatmap(beatmap)
       : {
           ...beatmap,
           notes: beatmap.notes.map((n) => ({ ...n })),
@@ -331,8 +335,16 @@ export class Game {
         this.activeSliders,
         (cursor, timeMs) => this.handleTapAt(cursor, timeMs)
       );
+      this.autopilotController = null;
+    } else if (this.activeMods.autoPilot) {
+      this.autoplayController = null;
+      this.autopilotController = new AutoplayController(
+        this.currentEffectiveBeatmap,
+        this.activeSliders
+      );
     } else {
       this.autoplayController = null;
+      this.autopilotController = null;
     }
   }
 
@@ -378,15 +390,25 @@ export class Game {
     const currentTimeMs = this.audioEngine.getCurrentTimeMs();
     let currentInput = this.inputManager.getState();
 
-    // AutoPlay takes over input during gameplay
-    if (this.state === 'playing' && this.activeMods.autoPlay && this.autoplayController) {
-      const autoState = this.autoplayController.update(currentTimeMs, dt);
-      currentInput = {
-        cursor: autoState.cursor,
-        inPlayfield: autoState.inPlayfield,
-        keys: autoState.keys,
-        keyCounts: autoState.keyCounts,
-      };
+    // Mod assist during gameplay
+    if (this.state === 'playing') {
+      if (this.activeMods.autoPlay && this.autoplayController) {
+        const autoState = this.autoplayController.update(currentTimeMs, dt);
+        currentInput = {
+          cursor: autoState.cursor,
+          inPlayfield: autoState.inPlayfield,
+          keys: autoState.keys,
+          keyCounts: autoState.keyCounts,
+        };
+      } else if (this.activeMods.autoPilot && this.autopilotController) {
+        const autoCursor = this.autopilotController.updateCursorTrajectory(currentTimeMs);
+        currentInput = {
+          ...currentInput,
+          cursor: autoCursor,
+        };
+      } else if (this.activeMods.relax) {
+        this.handleRelaxMod(currentTimeMs, currentInput.cursor);
+      }
     }
 
     // Track cursor trail
@@ -509,19 +531,51 @@ export class Game {
     }
   }
 
+  private handleRelaxMod(currentTimeMs: number, cursor: Vector2): void {
+    const radius = this.currentEffectiveBeatmap.circleRadius;
+    const window300 = this.judgementSystem.window300;
+    const window100 = this.judgementSystem.window100;
+
+    for (let i = 0; i < this.unjudgedObjects.length; i++) {
+      const note = this.unjudgedObjects[i];
+      const delta = currentTimeMs - note.timeMs;
+
+      // When note is in ideal hit window (-window300 to +window100)
+      if (delta >= -window300 && delta <= window100) {
+        const dist = Math.hypot(cursor.x - note.x, cursor.y - note.y);
+        if (dist <= radius) {
+          // Accurate aim: execute automatic tap!
+          this.handleTapAt({ x: note.x, y: note.y }, currentTimeMs);
+          break;
+        }
+      } else if (delta < -window300) {
+        // Subsequent notes are chronologically further in future
+        break;
+      }
+    }
+  }
+
   private render(): void {
     const currentTimeMs = this.audioEngine.getCurrentTimeMs();
     const stats = this.scoreSystem.getStats();
     let currentInput = this.inputManager.getState();
 
-    if (this.state === 'playing' && this.activeMods.autoPlay && this.autoplayController) {
-      const auto = this.autoplayController.update(currentTimeMs, 0);
-      currentInput = {
-        cursor: auto.cursor,
-        inPlayfield: auto.inPlayfield,
-        keys: auto.keys,
-        keyCounts: auto.keyCounts,
-      };
+    if (this.state === 'playing') {
+      if (this.activeMods.autoPlay && this.autoplayController) {
+        const auto = this.autoplayController.update(currentTimeMs, 0);
+        currentInput = {
+          cursor: auto.cursor,
+          inPlayfield: auto.inPlayfield,
+          keys: auto.keys,
+          keyCounts: auto.keyCounts,
+        };
+      } else if (this.activeMods.autoPilot && this.autopilotController) {
+        const autoCursor = this.autopilotController.updateCursorTrajectory(currentTimeMs);
+        currentInput = {
+          ...currentInput,
+          cursor: autoCursor,
+        };
+      }
     }
 
     const totalDuration = this.audioEngine.getDurationMs();

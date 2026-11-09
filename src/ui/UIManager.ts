@@ -30,8 +30,11 @@ export class UIManager {
   private activeMods: ActiveMods = {
     autoPlay: false,
     easy: false,
+    autoPilot: false,
+    relax: false,
   };
   private isModsModalOpen: boolean = false;
+  private rankingCategoryTab: 'competitive' | 'assisted' = 'competitive';
 
   private isMainMenuOpen: boolean = false;
   private isMainMenuActive: boolean = false;
@@ -661,11 +664,9 @@ ${tracksHtml}
     const current = this.selectedBeatmap!;
     const badgeText = this.getModsBadgeText();
 
-    const effectiveRadius = this.activeMods.easy
-      ? Math.round(current.circleRadius * 1.25)
-      : current.circleRadius;
+    const effectiveRadius = current.circleRadius;
     const effectiveAR = this.activeMods.easy
-      ? Math.round(current.approachTimeMs * 1.3)
+      ? Math.round(current.approachTimeMs * 1.45)
       : current.approachTimeMs;
 
     this.container.innerHTML = `
@@ -763,11 +764,11 @@ ${tracksHtml}
                 <div class="spotlight-map-info" id="spotlight-map-info">
                   <div class="map-param">
                     <span>Tamanho Círculo (CS):</span>
-                    <strong id="spotlight-cs">${effectiveRadius} px ${this.activeMods.easy ? '<span class="easy-mod-indicator">(EASY +25%)</span>' : ''}</strong>
+                    <strong id="spotlight-cs">${effectiveRadius} px</strong>
                   </div>
                   <div class="map-param">
                     <span>Janela Aproximação (AR):</span>
-                    <strong id="spotlight-ar">${effectiveAR} ms ${this.activeMods.easy ? '<span class="easy-mod-indicator">(EASY +30%)</span>' : ''}</strong>
+                    <strong id="spotlight-ar">${effectiveAR} ms ${this.activeMods.easy ? '<span class="easy-mod-indicator">(EASY RITMO SUAVE)</span>' : ''}</strong>
                   </div>
                   <div class="map-param">
                     <span>Áudio:</span>
@@ -912,7 +913,13 @@ ${tracksHtml}
   }
 
   private renderRankingSection(beatmapId: string): string {
-    const scores = this.getScoresForBeatmap(beatmapId);
+    const allScores = this.getScoresForBeatmap(beatmapId);
+    const compScores = allScores.filter((r) => !r.mods?.autoPilot && !r.mods?.relax);
+    const assistedScores = allScores.filter((r) => r.mods?.autoPilot || r.mods?.relax);
+
+    const activeList = this.rankingCategoryTab === 'assisted' ? assistedScores : compScores;
+    const topScores = activeList.slice(0, 3);
+
     const gradeColors: Record<string, string> = {
       SS: '#ffd700',
       S: '#00f0ff',
@@ -922,7 +929,7 @@ ${tracksHtml}
       D: '#ef4444',
     };
 
-    if (scores.length === 0) {
+    if (allScores.length === 0) {
       return `
         <div class="ranking-header-bar">
           <div class="ranking-title-group">
@@ -940,14 +947,15 @@ ${tracksHtml}
       `;
     }
 
-    const topScores = scores.slice(0, 3);
-
     return `
       <div class="ranking-header-bar">
         <div class="ranking-title-group">
           <span class="ranking-icon">🏆</span>
-          <span class="ranking-heading">RANKING LOCAL</span>
-          <span class="ranking-count-tag">${scores.length} ${scores.length === 1 ? 'partida' : 'partidas'}</span>
+          <span class="ranking-heading">RANKING</span>
+          <div class="ranking-category-tabs">
+            <button type="button" class="rank-tab-btn ${this.rankingCategoryTab === 'competitive' ? 'active' : ''}" id="tab-rank-comp" data-cat="competitive">Competitivo (${compScores.length})</button>
+            <button type="button" class="rank-tab-btn ${this.rankingCategoryTab === 'assisted' ? 'active' : ''}" id="tab-rank-assisted" data-cat="assisted">Assistido (${assistedScores.length})</button>
+          </div>
         </div>
         <button id="btn-view-all-records" class="btn-all-records" type="button" title="Ver histórico completo de recordes">
           <span>Ver todos os recordes</span>
@@ -957,6 +965,18 @@ ${tracksHtml}
         </button>
       </div>
 
+      ${
+        activeList.length === 0
+          ? `
+        <div class="ranking-empty-state ranking-empty-compact">
+          <span class="empty-trophy">🎯</span>
+          <div class="empty-texts">
+            <span class="empty-main">Nenhum recorde ${this.rankingCategoryTab === 'assisted' ? 'assistido' : 'competitivo'}</span>
+            <span class="empty-sub">Jogue com ${this.rankingCategoryTab === 'assisted' ? 'Autopilot (AP) ou Relax (RX)' : 'as regras padrão'} para pontuar aqui.</span>
+          </div>
+        </div>
+      `
+          : `
       <div class="ranking-scores-mini-list">
         ${topScores
           .map((rec, idx) => {
@@ -965,6 +985,8 @@ ${tracksHtml}
             const posClass = pos === 1 ? 'pos-gold' : pos === 2 ? 'pos-silver' : 'pos-bronze';
             const gradeColor = gradeColors[rec.grade] || '#00f0ff';
             const hasEz = Boolean(rec.mods?.easy);
+            const hasAp = Boolean(rec.mods?.autoPilot);
+            const hasRx = Boolean(rec.mods?.relax);
 
             return `
               <div class="ranking-mini-row ${isTop1 ? 'is-best-record' : ''}">
@@ -976,6 +998,8 @@ ${tracksHtml}
                   <div class="rank-player-name-line">
                     <span class="rank-player-name">${rec.playerName}</span>
                     ${hasEz ? '<span class="badge-ez-mod">EZ</span>' : ''}
+                    ${hasAp ? '<span class="badge-ap-mod">AP</span>' : ''}
+                    ${hasRx ? '<span class="badge-rx-mod">RX</span>' : ''}
                   </div>
                   <span class="rank-timestamp">${rec.dateFormatted || ''}</span>
                 </div>
@@ -991,10 +1015,28 @@ ${tracksHtml}
           })
           .join('')}
       </div>
+      `
+      }
     `;
   }
 
   private attachRankingEvents(): void {
+    document.getElementById('tab-rank-comp')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.rankingCategoryTab = 'competitive';
+      if (this.selectedBeatmap) {
+        this.updateRankingSection(this.selectedBeatmap.id);
+      }
+    });
+
+    document.getElementById('tab-rank-assisted')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.rankingCategoryTab = 'assisted';
+      if (this.selectedBeatmap) {
+        this.updateRankingSection(this.selectedBeatmap.id);
+      }
+    });
+
     const btn = document.getElementById('btn-view-all-records');
     btn?.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1070,7 +1112,6 @@ ${tracksHtml}
                     const isTop1 = pos === 1;
                     const posClass = pos === 1 ? 'pos-gold' : pos === 2 ? 'pos-silver' : pos === 3 ? 'pos-bronze' : '';
                     const gradeColor = gradeColors[rec.grade] || '#00f0ff';
-                    const hasEz = Boolean(rec.mods?.easy);
 
                     return `
                       <tr class="${isTop1 ? 'tr-top-1' : ''}">
@@ -1080,7 +1121,11 @@ ${tracksHtml}
                         </td>
                         <td class="td-player"><strong>${rec.playerName}</strong></td>
                         <td class="td-mods">
-                          ${hasEz ? '<span class="badge-ez-mod">EZ</span>' : '<span class="no-mods-label">—</span>'}
+                          ${[
+                            rec.mods?.easy ? '<span class="badge-ez-mod">EZ</span>' : '',
+                            rec.mods?.autoPilot ? '<span class="badge-ap-mod">AP</span>' : '',
+                            rec.mods?.relax ? '<span class="badge-rx-mod">RX</span>' : '',
+                          ].filter(Boolean).join(' ') || '<span class="no-mods-label">—</span>'}
                         </td>
                         <td class="td-score highlight-score">${rec.score.toLocaleString()}</td>
                         <td class="td-acc highlight-cyan">${rec.accuracy.toFixed(2)}%</td>
@@ -1130,25 +1175,25 @@ ${tracksHtml}
     const csEl = document.getElementById('spotlight-cs');
     const arEl = document.getElementById('spotlight-ar');
 
-    const effectiveRadius = this.activeMods.easy
-      ? Math.round(current.circleRadius * 1.25)
-      : current.circleRadius;
+    const effectiveRadius = current.circleRadius;
     const effectiveAR = this.activeMods.easy
-      ? Math.round(current.approachTimeMs * 1.3)
+      ? Math.round(current.approachTimeMs * 1.45)
       : current.approachTimeMs;
 
     if (csEl) {
-      csEl.innerHTML = `${effectiveRadius} px ${this.activeMods.easy ? '<span class="easy-mod-indicator">(EASY +25%)</span>' : ''}`;
+      csEl.innerHTML = `${effectiveRadius} px`;
     }
     if (arEl) {
-      arEl.innerHTML = `${effectiveAR} ms ${this.activeMods.easy ? '<span class="easy-mod-indicator">(EASY +30%)</span>' : ''}`;
+      arEl.innerHTML = `${effectiveAR} ms ${this.activeMods.easy ? '<span class="easy-mod-indicator">(EASY RITMO SUAVE)</span>' : ''}`;
     }
   }
 
   private getModsBadgeText(): string {
     const list: string[] = [];
     if (this.activeMods.autoPlay) list.push('AUTO');
-    if (this.activeMods.easy) list.push('EASY');
+    if (this.activeMods.autoPilot) list.push('AP');
+    if (this.activeMods.relax) list.push('RX');
+    if (this.activeMods.easy) list.push('EZ');
     return list.join(' + ');
   }
 
@@ -1226,6 +1271,7 @@ ${tracksHtml}
 
         <!-- Mods Cards List -->
         <div class="mods-list">
+          <!-- 1. Auto Play -->
           <div class="mod-card mod-card-autoplay ${this.activeMods.autoPlay ? 'active' : ''}" id="mod-card-autoplay" role="button" tabindex="0">
             <div class="mod-icon-wrapper mod-icon-autoplay">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1239,13 +1285,50 @@ ${tracksHtml}
             </div>
             <div class="mod-info">
               <h3 class="mod-name">Auto Play</h3>
-              <p class="mod-desc">Assista ao jogo jogando sozinho</p>
+              <p class="mod-desc">Assista ao jogo jogando sozinho (sem pontuação)</p>
             </div>
             <div class="mod-toggle-indicator" id="indicator-autoplay">
               ${this.renderCheckboxIcon(this.activeMods.autoPlay)}
             </div>
           </div>
 
+          <!-- 2. Autopilot (AP) -->
+          <div class="mod-card mod-card-autopilot ${this.activeMods.autoPilot ? 'active' : ''}" id="mod-card-autopilot" role="button" tabindex="0">
+            <div class="mod-icon-wrapper mod-icon-autopilot">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3l7 18 3-7 7-3L3 3z"></path>
+              </svg>
+            </div>
+            <div class="mod-info">
+              <h3 class="mod-name">Autopilot <span class="mod-tag-pill tag-ap">AP</span></h3>
+              <p class="mod-desc">O cursor mira automaticamente; você aperta Z e X no ritmo</p>
+            </div>
+            <div class="mod-toggle-indicator" id="indicator-autopilot">
+              ${this.renderCheckboxIcon(this.activeMods.autoPilot)}
+            </div>
+          </div>
+
+          <!-- 3. Relax (RX) -->
+          <div class="mod-card mod-card-relax ${this.activeMods.relax ? 'active' : ''}" id="mod-card-relax" role="button" tabindex="0">
+            <div class="mod-icon-wrapper mod-icon-relax">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+                <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+                <line x1="6" y1="1" x2="6" y2="4"></line>
+                <line x1="10" y1="1" x2="10" y2="4"></line>
+                <line x1="14" y1="1" x2="14" y2="4"></line>
+              </svg>
+            </div>
+            <div class="mod-info">
+              <h3 class="mod-name">Relax <span class="mod-tag-pill tag-rx">RX</span></h3>
+              <p class="mod-desc">Você controla a mira; cliques executados no timing certo</p>
+            </div>
+            <div class="mod-toggle-indicator" id="indicator-relax">
+              ${this.renderCheckboxIcon(this.activeMods.relax)}
+            </div>
+          </div>
+
+          <!-- 4. Easy (EZ) -->
           <div class="mod-card mod-card-easy ${this.activeMods.easy ? 'active' : ''}" id="mod-card-easy" role="button" tabindex="0">
             <div class="mod-icon-wrapper mod-icon-easy">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d946ef" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1253,8 +1336,8 @@ ${tracksHtml}
               </svg>
             </div>
             <div class="mod-info">
-              <h3 class="mod-name">Easy</h3>
-              <p class="mod-desc">Notas maiores e mais tempo para acertar</p>
+              <h3 class="mod-name">Easy <span class="mod-tag-pill tag-ez">EZ</span></h3>
+              <p class="mod-desc">Botões normais, ritmo simplificado e leitura suave</p>
             </div>
             <div class="mod-toggle-indicator" id="indicator-easy">
               ${this.renderCheckboxIcon(this.activeMods.easy)}
@@ -1289,30 +1372,60 @@ ${tracksHtml}
       this.closeModsModal();
     });
 
+    const refreshModCardsUI = () => {
+      const list = [
+        { id: 'autoplay', active: this.activeMods.autoPlay },
+        { id: 'autopilot', active: this.activeMods.autoPilot },
+        { id: 'relax', active: this.activeMods.relax },
+        { id: 'easy', active: this.activeMods.easy },
+      ];
+      for (const item of list) {
+        const cardEl = document.getElementById(`mod-card-${item.id}`);
+        const indicatorEl = document.getElementById(`indicator-${item.id}`);
+        if (cardEl) cardEl.classList.toggle('active', item.active);
+        if (indicatorEl) indicatorEl.innerHTML = this.renderCheckboxIcon(item.active);
+      }
+      this.updateModsBadges();
+      this.updateSpotlightMapInfo();
+      this.handlers.onModsChange?.(this.activeMods);
+    };
+
+    // Mutual exclusivity: Autoplay, Autopilot, and Relax cannot be combined with each other!
     const autoplayCard = document.getElementById('mod-card-autoplay');
     autoplayCard?.addEventListener('click', () => {
       this.activeMods.autoPlay = !this.activeMods.autoPlay;
-      autoplayCard.classList.toggle('active', this.activeMods.autoPlay);
-      const indicator = document.getElementById('indicator-autoplay');
-      if (indicator) {
-        indicator.innerHTML = this.renderCheckboxIcon(this.activeMods.autoPlay);
+      if (this.activeMods.autoPlay) {
+        this.activeMods.autoPilot = false;
+        this.activeMods.relax = false;
       }
-      this.updateModsBadges();
-      this.updateSpotlightMapInfo();
-      this.handlers.onModsChange?.(this.activeMods);
+      refreshModCardsUI();
     });
 
+    const autopilotCard = document.getElementById('mod-card-autopilot');
+    autopilotCard?.addEventListener('click', () => {
+      this.activeMods.autoPilot = !this.activeMods.autoPilot;
+      if (this.activeMods.autoPilot) {
+        this.activeMods.autoPlay = false;
+        this.activeMods.relax = false;
+      }
+      refreshModCardsUI();
+    });
+
+    const relaxCard = document.getElementById('mod-card-relax');
+    relaxCard?.addEventListener('click', () => {
+      this.activeMods.relax = !this.activeMods.relax;
+      if (this.activeMods.relax) {
+        this.activeMods.autoPlay = false;
+        this.activeMods.autoPilot = false;
+      }
+      refreshModCardsUI();
+    });
+
+    // Easy mod can combine freely with unassisted, AP, or RX
     const easyCard = document.getElementById('mod-card-easy');
     easyCard?.addEventListener('click', () => {
       this.activeMods.easy = !this.activeMods.easy;
-      easyCard.classList.toggle('active', this.activeMods.easy);
-      const indicator = document.getElementById('indicator-easy');
-      if (indicator) {
-        indicator.innerHTML = this.renderCheckboxIcon(this.activeMods.easy);
-      }
-      this.updateModsBadges();
-      this.updateSpotlightMapInfo();
-      this.handlers.onModsChange?.(this.activeMods);
+      refreshModCardsUI();
     });
   }
 
@@ -1385,10 +1498,12 @@ ${tracksHtml}
             <h2 class="results-title">RESULTADOS</h2>
 
             ${
-              effectiveMods.autoPlay || effectiveMods.easy
+              effectiveMods.autoPlay || effectiveMods.autoPilot || effectiveMods.relax || effectiveMods.easy
                 ? `
               <div class="results-mods-row">
                 ${effectiveMods.autoPlay ? '<span class="result-mod-badge mod-badge-autoplay">🤖 AUTO PLAY</span>' : ''}
+                ${effectiveMods.autoPilot ? '<span class="result-mod-badge mod-badge-autopilot">🎯 AUTOPILOT</span>' : ''}
+                ${effectiveMods.relax ? '<span class="result-mod-badge mod-badge-relax">☕ RELAX</span>' : ''}
                 ${effectiveMods.easy ? '<span class="result-mod-badge mod-badge-easy">❤️ EASY</span>' : ''}
               </div>
             `
@@ -1450,12 +1565,22 @@ ${tracksHtml}
                 </div>
               </div>
             `
+                : (effectiveMods.autoPilot || effectiveMods.relax)
+                ? `
+              <div class="leaderboard-saved-banner assisted-banner">
+                <span class="saved-icon">🎮</span>
+                <div class="saved-banner-text">
+                  <strong>Partida Assistida Registrada!</strong>
+                  <span>Pontuação salva na categoria de recordes assistidos (${[effectiveMods.autoPilot ? 'AP' : '', effectiveMods.relax ? 'RX' : ''].filter(Boolean).join(' + ')}).</span>
+                </div>
+              </div>
+            `
                 : `
               <div class="leaderboard-saved-banner">
                 <span class="saved-icon">🏆</span>
                 <div class="saved-banner-text">
                   <strong>Pontuação Registrada!</strong>
-                  <span>Seu resultado foi salvo com sucesso no ranking local.</span>
+                  <span>Seu resultado foi salvo com sucesso no ranking local competitivo.</span>
                 </div>
               </div>
             `

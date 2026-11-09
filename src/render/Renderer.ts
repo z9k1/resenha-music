@@ -561,7 +561,7 @@ export class Renderer {
     const titleWidth = ctx.measureText(beatmap.title).width;
 
     // Active Mods Badges (positioned next to song title)
-    if (activeMods && (activeMods.autoPlay || activeMods.easy)) {
+    if (activeMods && (activeMods.autoPlay || activeMods.autoPilot || activeMods.relax || activeMods.easy)) {
       let badgeX = leftX + titleWidth + 12;
 
       if (activeMods.autoPlay) {
@@ -584,6 +584,62 @@ export class Renderer {
 
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#00f0ff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, badgeX + w / 2, y + h / 2);
+        ctx.restore();
+
+        badgeX += w + 8;
+      }
+
+      if (activeMods.autoPilot) {
+        ctx.save();
+        const text = 'AUTOPILOT';
+        ctx.font = `bold 10px ${Skin.fonts.display}`;
+        const w = ctx.measureText(text).width + 12;
+        const h = 18;
+        const y = titleY - h / 2;
+
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.15)';
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 1.2;
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.roundRect(badgeX, y, w, h, 9);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#00f0ff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, badgeX + w / 2, y + h / 2);
+        ctx.restore();
+
+        badgeX += w + 8;
+      }
+
+      if (activeMods.relax) {
+        ctx.save();
+        const text = 'RELAX';
+        ctx.font = `bold 10px ${Skin.fonts.display}`;
+        const w = ctx.measureText(text).width + 12;
+        const h = 18;
+        const y = titleY - h / 2;
+
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 1.2;
+        ctx.shadowColor = '#10b981';
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.roundRect(badgeX, y, w, h, 9);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#10b981';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(text, badgeX + w / 2, y + h / 2);

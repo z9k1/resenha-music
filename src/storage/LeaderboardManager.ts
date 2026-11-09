@@ -152,6 +152,8 @@ export class LeaderboardManager {
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const dateFormatted = `${day}/${month}/${year} ${hours}:${minutes}`;
 
+    const isAssisted = Boolean(mods?.autoPilot || mods?.relax);
+
     const newRecord: ScoreRecord = {
       id: `rec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       beatmapId,
@@ -169,7 +171,10 @@ export class LeaderboardManager {
       mods: {
         easy: Boolean(mods?.easy),
         autoPlay: false,
+        autoPilot: Boolean(mods?.autoPilot),
+        relax: Boolean(mods?.relax),
       },
+      category: isAssisted ? 'assisted' : 'competitive',
       timestamp: Date.now(),
       dateFormatted,
     };
@@ -192,19 +197,44 @@ export class LeaderboardManager {
   }
 
   /**
-   * Returns all recorded scores for a given beatmap, sorted by ranking criteria.
+   * Helper to determine whether a record is assisted by Autopilot or Relax.
    */
-  public getScores(beatmapId: string): ScoreRecord[] {
-    const allScores = this.loadAllScores();
-    const list = allScores[beatmapId] || [];
-    return [...list].sort((a, b) => this.compareScores(a, b));
+  public isAssistedRecord(rec: ScoreRecord): boolean {
+    return Boolean(rec.mods?.autoPilot || rec.mods?.relax || rec.category === 'assisted');
   }
 
   /**
-   * Returns top N records for a given beatmap.
+   * Returns recorded scores for a given beatmap, optionally filtered by category.
+   * 'competitive' returns unassisted runs (normal / EZ).
+   * 'assisted' returns assisted runs (AP / RX).
+   * 'all' returns all runs sorted.
    */
-  public getTopScores(beatmapId: string, limit: number = 3): ScoreRecord[] {
-    return this.getScores(beatmapId).slice(0, limit);
+  public getScores(
+    beatmapId: string,
+    filter: 'all' | 'competitive' | 'assisted' = 'all'
+  ): ScoreRecord[] {
+    const allScores = this.loadAllScores();
+    const list = allScores[beatmapId] || [];
+    const sorted = [...list].sort((a, b) => this.compareScores(a, b));
+
+    if (filter === 'competitive') {
+      return sorted.filter((r) => !this.isAssistedRecord(r));
+    }
+    if (filter === 'assisted') {
+      return sorted.filter((r) => this.isAssistedRecord(r));
+    }
+    return sorted;
+  }
+
+  /**
+   * Returns top N records for a given beatmap with optional category filter.
+   */
+  public getTopScores(
+    beatmapId: string,
+    limit: number = 3,
+    filter: 'all' | 'competitive' | 'assisted' = 'all'
+  ): ScoreRecord[] {
+    return this.getScores(beatmapId, filter).slice(0, limit);
   }
 
   /**

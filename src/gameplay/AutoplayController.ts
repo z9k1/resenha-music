@@ -20,7 +20,7 @@ export interface AutoplayInputState {
 export class AutoplayController {
   private beatmap: Beatmap;
   private activeSliders: ActiveSlider[];
-  private onTriggerTap: (cursor: Vector2, timeMs: number) => void;
+  private onTriggerTap?: (cursor: Vector2, timeMs: number) => void;
 
   private triggeredNoteIds: Set<number> = new Set();
   private cursor: Vector2 = { x: 400, y: 300 };
@@ -36,7 +36,7 @@ export class AutoplayController {
   constructor(
     beatmap: Beatmap,
     activeSliders: ActiveSlider[],
-    onTriggerTap: (cursor: Vector2, timeMs: number) => void
+    onTriggerTap?: (cursor: Vector2, timeMs: number) => void
   ) {
     this.beatmap = beatmap;
     this.activeSliders = activeSliders;
@@ -49,35 +49,13 @@ export class AutoplayController {
     }
   }
 
-  public update(currentTimeMs: number, _dt: number): AutoplayInputState {
+  /**
+   * Calculates and updates the smooth cursor trajectory towards the next object
+   * or following active rolling sliders without triggering any taps.
+   */
+  public updateCursorTrajectory(currentTimeMs: number): Vector2 {
     const notes = this.beatmap.notes;
 
-    // 1. Check for notes ready to be tapped (at exact timeMs)
-    for (const note of notes) {
-      if (!this.triggeredNoteIds.has(note.id) && currentTimeMs >= note.timeMs) {
-        this.triggeredNoteIds.add(note.id);
-
-        // Alternate Z and X keys
-        this.currentKey = this.hitCount % 2 === 0 ? 'z' : 'x';
-        this.hitCount++;
-        this.keyCounts[this.currentKey]++;
-
-        if (isSlider(note)) {
-          // Hold key through slider duration plus small buffer
-          this.keyReleaseTime = Math.max(this.keyReleaseTime, note.timeMs + note.durationMs + 25);
-        } else {
-          // Tap hit circle and hold for ~75ms for realistic key-overlay feedback
-          this.keyReleaseTime = Math.max(this.keyReleaseTime, note.timeMs + 75);
-        }
-
-        // Tap exactly at object position
-        const tapPos: Vector2 = { x: note.x, y: note.y };
-        this.cursor = { ...tapPos };
-        this.onTriggerTap(tapPos, currentTimeMs);
-      }
-    }
-
-    // 2. Determine Cursor Trajectory
     // Is any slider currently active/rolling right now?
     const rollingSlider = this.activeSliders.find((s) => {
       return (
@@ -91,93 +69,122 @@ export class AutoplayController {
       // Follow the slider ball position smoothly
       const ball = rollingSlider.getBallState(currentTimeMs);
       this.cursor = { x: ball.position.x, y: ball.position.y };
-    } else {
-      // Find the upcoming note to move toward
-      const nextNote = notes.find((n) => n.timeMs > currentTimeMs);
+      return this.cursor;
+    }
 
-      if (nextNote) {
-        // Find the previous note that finished before this nextNote
-        let prevPos: Vector2 = { x: 400, y: 300 };
-        let prevEndTime = 0;
+    // Find upcoming note to move toward
+    const nextNote = notes.find((n) => n.timeMs > currentTimeMs);
 
-        const prevNoteIndex = notes.indexOf(nextNote) - 1;
-        if (prevNoteIndex >= 0) {
-          const prevNote = notes[prevNoteIndex];
-          if (isSlider(prevNote)) {
-            const activePrev = this.activeSliders.find((s) => s.data.id === prevNote.id);
-            if (activePrev) {
-              prevPos =
-                prevNote.slides % 2 === 1
-                  ? activePrev.path.getTailPosition()
-                  : activePrev.path.getHeadPosition();
-            } else {
-              prevPos = { x: prevNote.x, y: prevNote.y };
-            }
-            prevEndTime = prevNote.timeMs + prevNote.durationMs;
+    if (nextNote) {
+      let prevPos: Vector2 = { x: 400, y: 300 };
+      let prevEndTime = 0;
+
+      const prevNoteIndex = notes.indexOf(nextNote) - 1;
+      if (prevNoteIndex >= 0) {
+        const prevNote = notes[prevNoteIndex];
+        if (isSlider(prevNote)) {
+          const activePrev = this.activeSliders.find((s) => s.data.id === prevNote.id);
+          if (activePrev) {
+            prevPos =
+              prevNote.slides % 2 === 1
+                ? activePrev.path.getTailPosition()
+                : activePrev.path.getHeadPosition();
           } else {
             prevPos = { x: prevNote.x, y: prevNote.y };
-            prevEndTime = prevNote.timeMs;
           }
+          prevEndTime = prevNote.timeMs + prevNote.durationMs;
         } else {
-          prevPos = { x: nextNote.x, y: nextNote.y };
-          prevEndTime = 0;
+          prevPos = { x: prevNote.x, y: prevNote.y };
+          prevEndTime = prevNote.timeMs;
         }
+      } else {
+        prevPos = { x: nextNote.x, y: nextNote.y };
+        prevEndTime = 0;
+      }
 
-        const targetPos: Vector2 = { x: nextNote.x, y: nextNote.y };
-        const availableInterval = nextNote.timeMs - prevEndTime;
+      const targetPos: Vector2 = { x: nextNote.x, y: nextNote.y };
+      const availableInterval = nextNote.timeMs - prevEndTime;
 
-        // Move duration: proportion of available gap, clamped for smooth pacing
-        const moveDuration = Math.min(360, Math.max(100, availableInterval * 0.78));
-        const startMoveTime = nextNote.timeMs - moveDuration;
+      // Move duration: proportion of available gap, clamped for smooth pacing
+      const moveDuration = Math.min(360, Math.max(100, availableInterval * 0.78));
+      const startMoveTime = nextNote.timeMs - moveDuration;
 
-        if (currentTimeMs <= startMoveTime) {
-          this.cursor = { ...prevPos };
-        } else if (currentTimeMs >= nextNote.timeMs) {
-          this.cursor = { ...targetPos };
+      if (currentTimeMs <= startMoveTime) {
+        this.cursor = { ...prevPos };
+      } else if (currentTimeMs >= nextNote.timeMs) {
+        this.cursor = { ...targetPos };
+      } else {
+        // Smooth Hermite / EaseInOut interpolation
+        const p = Math.max(0, Math.min(1, (currentTimeMs - startMoveTime) / moveDuration));
+        // Cubic easeInOut
+        const t = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+
+        const lx = prevPos.x + (targetPos.x - prevPos.x) * t;
+        const ly = prevPos.y + (targetPos.y - prevPos.y) * t;
+
+        // Subtle organic arc curve perpendicular to vector
+        const dx = targetPos.x - prevPos.x;
+        const dy = targetPos.y - prevPos.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 15) {
+          const nx = -dy / dist;
+          const ny = dx / dist;
+          const arcDirection = nextNote.id % 2 === 0 ? 1 : -1;
+          const arcFactor = Math.sin(p * Math.PI) * Math.min(35, dist * 0.12) * arcDirection;
+
+          this.cursor = {
+            x: lx + nx * arcFactor,
+            y: ly + ny * arcFactor,
+          };
         } else {
-          // Smooth Hermite / EaseInOut interpolation
-          const p = Math.max(0, Math.min(1, (currentTimeMs - startMoveTime) / moveDuration));
-          // Cubic easeInOut
-          const t = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+          this.cursor = { x: lx, y: ly };
+        }
+      }
+    } else if (notes.length > 0) {
+      const last = notes[notes.length - 1];
+      this.cursor = { x: last.x, y: last.y };
+    }
 
-          const lx = prevPos.x + (targetPos.x - prevPos.x) * t;
-          const ly = prevPos.y + (targetPos.y - prevPos.y) * t;
+    return this.cursor;
+  }
 
-          // Subtle organic arc curve perpendicular to vector
-          const dx = targetPos.x - prevPos.x;
-          const dy = targetPos.y - prevPos.y;
-          const dist = Math.hypot(dx, dy);
+  public getCursor(): Vector2 {
+    return { ...this.cursor };
+  }
 
-          if (dist > 15) {
-            const nx = -dy / dist;
-            const ny = dx / dist;
-            const arcDirection = nextNote.id % 2 === 0 ? 1 : -1;
-            const arcFactor = Math.sin(p * Math.PI) * Math.min(35, dist * 0.12) * arcDirection;
+  public update(currentTimeMs: number, _dt: number): AutoplayInputState {
+    const notes = this.beatmap.notes;
 
-            this.cursor = {
-              x: lx + nx * arcFactor,
-              y: ly + ny * arcFactor,
-            };
+    // 1. Check for notes ready to be tapped (at exact timeMs)
+    if (this.onTriggerTap) {
+      for (const note of notes) {
+        if (!this.triggeredNoteIds.has(note.id) && currentTimeMs >= note.timeMs) {
+          this.triggeredNoteIds.add(note.id);
+
+          // Alternate Z and X keys
+          this.currentKey = this.hitCount % 2 === 0 ? 'z' : 'x';
+          this.hitCount++;
+          this.keyCounts[this.currentKey]++;
+
+          if (isSlider(note)) {
+            // Hold key through slider duration plus small buffer
+            this.keyReleaseTime = Math.max(this.keyReleaseTime, note.timeMs + note.durationMs + 25);
           } else {
-            this.cursor = { x: lx, y: ly };
+            // Tap hit circle and hold for ~75ms for realistic key-overlay feedback
+            this.keyReleaseTime = Math.max(this.keyReleaseTime, note.timeMs + 75);
           }
-        }
-      } else if (notes.length > 0) {
-        // After last note, stay near last note
-        const last = notes[notes.length - 1];
-        if (isSlider(last)) {
-          const activeLast = this.activeSliders.find((s) => s.data.id === last.id);
-          if (activeLast) {
-            this.cursor =
-              last.slides % 2 === 1
-                ? activeLast.path.getTailPosition()
-                : activeLast.path.getHeadPosition();
-          }
-        } else {
-          this.cursor = { x: last.x, y: last.y };
+
+          // Tap exactly at object position
+          const tapPos: Vector2 = { x: note.x, y: note.y };
+          this.cursor = { ...tapPos };
+          this.onTriggerTap(tapPos, currentTimeMs);
         }
       }
     }
+
+    // 2. Determine Cursor Trajectory
+    this.updateCursorTrajectory(currentTimeMs);
 
     // 3. Evaluate key states
     const isKeyDown = currentTimeMs < this.keyReleaseTime;

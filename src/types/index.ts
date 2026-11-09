@@ -81,6 +81,8 @@ export type GameState = 'main_menu' | 'song_select' | 'playing' | 'paused' | 're
 export interface ActiveMods {
   autoPlay: boolean;
   easy: boolean;
+  autoPilot: boolean;
+  relax: boolean;
 }
 
 export interface InputState {
@@ -142,9 +144,12 @@ export interface ScoreRecord {
   mods: {
     easy?: boolean;
     autoPlay?: boolean;
+    autoPilot?: boolean;
+    relax?: boolean;
   };
   timestamp: number;
   dateFormatted: string;
+  category?: 'competitive' | 'assisted';
 }
 
 export interface LeaderboardStorageSchema {
