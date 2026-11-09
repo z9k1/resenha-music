@@ -121,6 +121,7 @@ console.log('\n=== TEST 2: UIManager Start Screen & Interactions ===');
   // Verify updated footer requirements
   assert(container.innerHTML.includes('RESENHA MUSIC 2.0'), 'Footer contains RESENHA MUSIC 2.0');
   assert(container.innerHTML.includes('Projeto Cultural • 2026'), 'Footer contains Projeto Cultural • 2026');
+  assert(container.innerHTML.includes('Qualquer semelhança é mera conhecidência!'), 'Title screen contains slogan');
   assert(!container.innerHTML.includes('MASCOTE LORO'), 'Footer does not contain MASCOTE LORO');
 
   // Verify transition to active state

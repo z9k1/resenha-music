@@ -303,21 +303,74 @@ kbd {
   cursor: pointer;
   z-index: 6;
   outline: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), filter 0.35s ease;
+  animation: logoIntroEntry 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes logoIntroEntry {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .stage-idle .title-logo-wrapper {
-  animation: heroPulseBeat 2.2s infinite ease-in-out;
+  animation: logoIntroEntry 0.9s cubic-bezier(0.16, 1, 0.3, 1) both, heroFloat 3.8s ease-in-out infinite 0.9s;
 }
 
-@keyframes heroPulseBeat {
+@keyframes heroFloat {
   0%, 100% {
-    transform: scale(1);
+    transform: translateY(0px) scale(1);
     filter: drop-shadow(0 0 25px rgba(0, 240, 255, 0.35));
   }
   50% {
-    transform: scale(1.026);
-    filter: drop-shadow(0 0 45px rgba(255, 0, 127, 0.55)) drop-shadow(0 0 20px rgba(0, 240, 255, 0.4));
+    transform: translateY(-8px) scale(1.02);
+    filter: drop-shadow(0 0 45px rgba(255, 0, 127, 0.55)) drop-shadow(0 0 22px rgba(0, 240, 255, 0.4));
+  }
+}
+
+/* Slogan below logo */
+.title-slogan {
+  margin-top: 14px;
+  font-family: var(--font-display);
+  font-size: clamp(0.82rem, 1.8vw, 0.96rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(220, 245, 255, 0.85);
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.35);
+  text-align: center;
+  user-select: none;
+  pointer-events: none;
+  max-width: 90vw;
+  animation: sloganFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both, sloganGlow 4s ease-in-out infinite 1.35s;
+}
+
+@keyframes sloganFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sloganGlow {
+  0%, 100% {
+    color: rgba(220, 245, 255, 0.85);
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.35);
+  }
+  50% {
+    color: #ffffff;
+    text-shadow: 0 0 16px rgba(0, 240, 255, 0.65), 0 0 25px rgba(255, 0, 127, 0.35);
   }
 }
 
@@ -397,6 +450,21 @@ kbd {
   font-weight: 700;
   letter-spacing: 0.1em;
   color: #ffffff;
+  display: inline-block;
+  animation: promptTextPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes promptTextPulse {
+  0%, 100% {
+    opacity: 0.88;
+    transform: scale(1);
+    text-shadow: 0 0 6px rgba(0, 240, 255, 0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.025);
+    text-shadow: 0 0 14px rgba(0, 240, 255, 0.8), 0 0 22px rgba(255, 0, 127, 0.45);
+  }
 }
 
 .prompt-sub {
@@ -415,6 +483,24 @@ kbd {
   50% {
     opacity: 1;
     box-shadow: 0 0 35px rgba(0, 240, 255, 0.45);
+  }
+}
+
+/* Accessibility: Respect Reduced Motion Preference */
+@media (prefers-reduced-motion: reduce) {
+  .title-logo-wrapper,
+  .stage-idle .title-logo-wrapper,
+  .logo-inner-frame,
+  .title-slogan,
+  .prompt-pill,
+  .prompt-main,
+  .title-idle-prompt,
+  .title-wave-rings,
+  .wave-ring,
+  .title-ambient-glow {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
   }
 }
 
