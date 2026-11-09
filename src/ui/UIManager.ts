@@ -514,6 +514,7 @@ export class UIManager {
         case 'sua-rifa-nao-vou-comprar': return '🎟️';
         case 'quem-fiscaliza-o-fiscal': return '🚨';
         case 'mapeamento': return '🗺️';
+        case 'unopar-me-deixa-em-paz': return '🎓';
         case 'pod-no-banheiro': return '💨';
         case 'dalsao-no-suco': return '⚡';
         case 'alo-cachorrada': return '🔥';

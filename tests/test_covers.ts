@@ -31,6 +31,9 @@ assert(fiscal?.coverUrl === './covers/quem-fiscaliza-o-fiscal.jpg', 'Quem Fiscal
 const map = getBeatmapById('mapeamento');
 assert(map?.coverUrl === './covers/mapeamento.jpg', 'Mapeamento cover must be ./covers/mapeamento.jpg');
 
+const unopar = getBeatmapById('unopar-me-deixa-em-paz');
+assert(unopar?.coverUrl === './covers/unopar-me-deixa-em-paz.jpg', 'Unopar cover must be ./covers/unopar-me-deixa-em-paz.jpg');
+
 const pod = getBeatmapById('pod-no-banheiro');
 assert(pod?.coverUrl === './covers/pod-no-banheiro.jpg', 'Pod no Banheiro cover must be ./covers/pod-no-banheiro.jpg');
 
@@ -43,7 +46,7 @@ assert(alo?.coverUrl === './covers/alocachorrada.jpg', 'Alô cachorrada cover mu
 const groove = getBeatmapById('resenha-groove-demo');
 assert(groove?.coverUrl === './covers/resenha-groove.png', 'Resenha Groove cover must be ./covers/resenha-groove.png');
 
-console.log('✓ TEST 1 PASSED: All 7 songs have valid relative covers in project assets');
+console.log('✓ TEST 1 PASSED: All 8 songs have valid relative covers in project assets');
 
 console.log('\n=== TEST 2: Song Select UI Thumbnails and Spotlight ===');
 {

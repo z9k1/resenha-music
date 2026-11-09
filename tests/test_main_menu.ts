@@ -143,6 +143,7 @@ console.log('\n=== TEST 3: Default Beatmap (Sua Rifa Não Vou Comprar) & Song Me
   const suaRifa = BEATMAPS.find((b) => b.id === 'sua-rifa-nao-vou-comprar')!;
   const fiscal = BEATMAPS.find((b) => b.id === 'quem-fiscaliza-o-fiscal')!;
   const mapeamento = BEATMAPS.find((b) => b.id === 'mapeamento')!;
+  const unopar = BEATMAPS.find((b) => b.id === 'unopar-me-deixa-em-paz')!;
   const pod = BEATMAPS.find((b) => b.id === 'pod-no-banheiro')!;
   const dalsao = BEATMAPS.find((b) => b.id === 'dalsao-no-suco')!;
   const alo = BEATMAPS.find((b) => b.id === 'alo-cachorrada')!;
@@ -153,13 +154,15 @@ console.log('\n=== TEST 3: Default Beatmap (Sua Rifa Não Vou Comprar) & Song Me
   assert(fiscal.artist === 'Desconhecido', 'Quem Fiscaliza o Fiscal artist must be Desconhecido');
   assert(mapeamento.title === 'Mapeamento', 'Mapeamento title must be correct');
   assert(mapeamento.artist === 'Desconhecido', 'Mapeamento artist must be Desconhecido');
+  assert(unopar.title === 'Unopar, Me Deixa em Paz!', 'Unopar title must be correct');
+  assert(unopar.artist === 'Desconhecido', 'Unopar artist must be Desconhecido');
   assert(pod.title === 'Pod no Banheiro', 'Pod no Banheiro title must be Pod no Banheiro');
   assert(pod.artist === 'Desconhecido', 'Pod no Banheiro artist must be Desconhecido');
   assert(dalsao.artist === 'Desconhecido', 'Dalsão artist must be Desconhecido');
   assert(alo.artist === 'Desconhecido', 'Alô cachorrada artist must be Desconhecido');
   assert(groove.title === 'Ritimo da resenha', 'Resenha groove title must be "Ritimo da resenha"');
   assert(groove.artist === 'Miguel', 'Ritimo da resenha artist must be Miguel');
-  console.log('✓ Song metadata verified: Desconhecido for 6 songs, Miguel for Ritimo da resenha');
+  console.log('✓ Song metadata verified: Desconhecido for 7 songs, Miguel for Ritimo da resenha');
 }
 
 console.log('\n=== TEST 4: Credits Modal & Content Notice ===');
@@ -228,6 +231,7 @@ console.log('\n=== TEST 4: Credits Modal & Content Notice ===');
   assert(creditsHtml.includes('Sua Rifa Não Vou Comprar'), 'Credits contains Sua Rifa Não Vou Comprar');
   assert(creditsHtml.includes('Quem Fiscaliza o Fiscal?'), 'Credits contains Quem Fiscaliza o Fiscal?');
   assert(creditsHtml.includes('Mapeamento'), 'Credits contains Mapeamento');
+  assert(creditsHtml.includes('Unopar, Me Deixa em Paz!'), 'Credits contains Unopar, Me Deixa em Paz!');
   assert(creditsHtml.includes('Pod no Banheiro'), 'Credits contains Pod no Banheiro');
   assert(creditsHtml.includes('Dalsão no Suco'), 'Credits contains Dalsão no Suco');
   assert(creditsHtml.includes('Alô cachorrada!'), 'Credits contains Alô cachorrada!');
