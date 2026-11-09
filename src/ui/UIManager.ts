@@ -141,14 +141,28 @@ export class UIManager {
           (b) => b.id === this.selectedBeatmap?.id
         );
 
-        if (e.key === 'ArrowUp' || e.key === 'w') {
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
           e.preventDefault();
           const nextIndex = (currentIndex - 1 + this.beatmapsList.length) % this.beatmapsList.length;
           this.changeSelectedSong(this.beatmapsList[nextIndex]);
-        } else if (e.key === 'ArrowDown' || e.key === 's') {
+        } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
           e.preventDefault();
           const nextIndex = (currentIndex + 1) % this.beatmapsList.length;
           this.changeSelectedSong(this.beatmapsList[nextIndex]);
+        } else if (e.key === 'PageUp') {
+          e.preventDefault();
+          const nextIndex = Math.max(0, currentIndex - 4);
+          this.changeSelectedSong(this.beatmapsList[nextIndex]);
+        } else if (e.key === 'PageDown') {
+          e.preventDefault();
+          const nextIndex = Math.min(this.beatmapsList.length - 1, currentIndex + 4);
+          this.changeSelectedSong(this.beatmapsList[nextIndex]);
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          this.changeSelectedSong(this.beatmapsList[0]);
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          this.changeSelectedSong(this.beatmapsList[this.beatmapsList.length - 1]);
         } else if (e.key === 'Enter') {
           e.preventDefault();
           if (this.selectedBeatmap) {
@@ -826,6 +840,22 @@ ${tracksHtml}
         }
       });
     });
+
+    // Ensure the currently active card is visible in the scrollable panel upon entering
+    const scheduleNextFrame = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (cb: () => void) => setTimeout(cb, 0);
+
+    scheduleNextFrame(() => {
+      const activeCard = (typeof this.container?.querySelector === 'function'
+        ? this.container.querySelector('.song-card.active')
+        : (typeof document !== 'undefined' && typeof document.querySelector === 'function'
+            ? document.querySelector('.song-card.active')
+            : null)) as HTMLElement | null;
+      if (activeCard && typeof activeCard.scrollIntoView === 'function') {
+        activeCard.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+      }
+    });
   }
 
   private changeSelectedSong(beatmap: Beatmap): void {
@@ -837,7 +867,9 @@ ${tracksHtml}
       const isTarget = card.getAttribute('data-id') === beatmap.id;
       if (isTarget) {
         card.classList.add('active');
-        card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        if (typeof card.scrollIntoView === 'function') {
+          card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
       } else {
         card.classList.remove('active');
       }
